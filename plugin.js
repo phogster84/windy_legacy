@@ -1,16 +1,16 @@
-import bcast from '@windy/bcast';
-import store from '@windy/store';
-import map from '@windy/map';
-import { selector } from '@windy/utils';
+// Access Windy's native modules directly from the global W object
+const { bcast, store, map } = W;
 
-// Default ICS link if the user hasn't saved one yet
 const DEFAULT_ICS = "https://itinerary.rvlife.com/trips/ics/525823/UEVjWVFlczQ3MFFLSDhkNFJ3ZWdRUT09";
 const STORAGE_KEY = "windy_rv_ics_url";
 
 export const onopen = () => {
   const savedIcs = localStorage.getItem(STORAGE_KEY) || DEFAULT_ICS;
 
-  const container = selector.select('#plugin-rv-itinerary');
+  // Select the side panel container provided by Windy
+  const container = document.getElementById('plugin-rv-itinerary');
+  if (!container) return;
+
   container.innerHTML = `
     <div style="padding: 15px; color: #fff; font-family: sans-serif;">
       <h3 style="color: #f39c12; margin-top: 0;">🚐 RV Trip Calendar</h3>
@@ -39,7 +39,7 @@ export const onopen = () => {
   loadICS(savedIcs);
 };
 
-// Simple lightweight ICS Parser
+// Simple ICS Calendar Parser
 function parseICS(icsData) {
   const events = [];
   const lines = icsData.split(/\r\n|\n|\r/);
@@ -59,7 +59,6 @@ function parseICS(icsData) {
       if (line.startsWith('DTSTART')) {
         const val = line.split(':')[1];
         if (val) {
-          // Parse YYYYMMDD format from ICS
           const yyyy = val.substring(0, 4);
           const mm = val.substring(4, 6);
           const dd = val.substring(6, 8);
@@ -73,6 +72,8 @@ function parseICS(icsData) {
 
 async function loadICS(icsUrl) {
   const listContainer = document.getElementById('itinerary-list');
+  if (!listContainer) return;
+
   listContainer.innerHTML = 'Fetching RV Life trip...';
 
   try {
@@ -91,7 +92,6 @@ async function loadICS(icsUrl) {
       const searchTarget = event.location || event.summary;
       if (!searchTarget) continue;
 
-      // Geocode location using Nominatim
       const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTarget)}`);
       const geoData = await geoRes.json();
 
@@ -107,16 +107,12 @@ async function loadICS(icsUrl) {
           <div style="font-size: 0.85rem; color: #e67e22; margin-top: 4px;">📅 ${event.startDate || 'No date set'}</div>
         `;
 
-        // Native Windy Control Trigger on Click
+        // Click handler to control Windy map natively
         card.addEventListener('click', () => {
-          // 1. Re-center map
-          map.setView([lat, lon], 8);
+          if (map) map.setView([lat, lon], 8);
+          if (bcast) bcast.fire('openDetail', { lat, lon });
 
-          // 2. Fire native forecast panel at location
-          bcast.fire('openDetail', { lat, lon });
-
-          // 3. Scrub timeline to start date at 12:00 PM
-          if (event.startDate) {
+          if (event.startDate && store) {
             const targetDate = new Date(event.startDate + "T12:00:00");
             if (!isNaN(targetDate.getTime())) {
               store.set('timestamp', targetDate.getTime());
@@ -129,7 +125,7 @@ async function loadICS(icsUrl) {
     }
   } catch (err) {
     console.error("ICS Error:", err);
-    listContainer.innerHTML = '<span style="color:#e74c3c;">Failed to fetch ICS file. Check link or server permissions.</span>';
+    listContainer.innerHTML = '<span style="color:#e74c3c;">Failed to fetch ICS file. Check link or permissions.</span>';
   }
 }
 
