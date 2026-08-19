@@ -1,6 +1,6 @@
 {
   "name": "windy-plugin-rv-itinerary",
-  "title": "RV Trip Calendar Weather",
+  "title": "RV Trip Calendar Weather Plan",
   "description": "Loads an RV Life trip ICS calendar link and syncs the map, picker, and date timeline automatically.",
   "author": "@lvsm",
   "version": "1.1.0",
